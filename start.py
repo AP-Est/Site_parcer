@@ -12,9 +12,10 @@ sites = [
 
 class PageSizer(threading.Thread):
 
-    def __init__(self, url, *args, **kwargs):
+    def __init__(self, url, go_ahead=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
+        self.go_ahead = go_ahead
         self.total_bytes = 0
 
     def run(self):
@@ -23,15 +24,19 @@ class PageSizer(threading.Thread):
         if html_data is None:
             return
         self.total_bytes += len(html_data)
-        print(len(html_data))
-        extractor = LinkExtractor(base_url=self.url)
-        extractor.feed(html_data)
-        print(extractor.links)
+        # print(len(html_data))
+        if self.go_ahead:
+            extractor = LinkExtractor(base_url=self.url)
+            extractor.feed(html_data)
+            # print(extractor.links)
+            sizers = [PageSizer(url=link, go_ahead=False) for link in extractor.links]
+            for sizer in sizers:
+                sizer.start()
+            for sizer in sizers:
+                sizer.join()
 
-        for link in extractor.links:
-            extra_data = self._get_html(url=link)
-            if extra_data:
-                self.total_bytes += len(extra_data)
+            for sizer in sizers:
+                self.total_bytes += sizer.total_bytes
 
     def _get_html(self, url):
         try:
@@ -41,6 +46,7 @@ class PageSizer(threading.Thread):
             print(exc)
         else:
             return res.text
+
 
 @time_track
 def main():
@@ -53,8 +59,9 @@ def main():
         sizer.join()
 
     for sizer in sizers:
-        print(f'For url {sizer.url} need download {sizer.total_bytes // 1024} Kb  = {sizer.total_bytes / 1024 / 1024} Mb')
+        print(
+            f'For url {sizer.url} need download {sizer.total_bytes // 1024} Kb  = {sizer.total_bytes / 1024 / 1024} Mb')
 
 
-if __name__ ==  '__main__':
+if __name__ == '__main__':
     main()
