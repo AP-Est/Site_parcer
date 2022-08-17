@@ -1,5 +1,7 @@
 import requests
+import threading
 from extractor import LinkExtractor
+from utils import time_track
 
 sites = [
     'https://novychas.online',
@@ -8,9 +10,10 @@ sites = [
 ]
 
 
-class PageSizer:
+class PageSizer(threading.Thread):
 
-    def __init__(self, url):
+    def __init__(self, url, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.url = url
         self.total_bytes = 0
 
@@ -39,11 +42,19 @@ class PageSizer:
         else:
             return res.text
 
+@time_track
+def main():
+    sizers = [PageSizer(url=url) for url in sites]
 
-sizers = [PageSizer(url=url) for url in sites]
+    for sizer in sizers:
+        sizer.start()
 
-for sizer in sizers:
-    sizer.run()
+    for sizer in sizers:
+        sizer.join()
 
-for sizer in sizers:
-    print(f'For url {sizer.url} need download {sizer.total_bytes // 1024} Kb  = {sizer.total_bytes / 1024 / 1024} Mb')
+    for sizer in sizers:
+        print(f'For url {sizer.url} need download {sizer.total_bytes // 1024} Kb  = {sizer.total_bytes / 1024 / 1024} Mb')
+
+
+if __name__ ==  '__main__':
+    main()
